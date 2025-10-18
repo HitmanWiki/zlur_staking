@@ -1,0 +1,283 @@
+Zlurpee Staking Contract Documentation & Workflow
+This document provides a detailed overview of the proposed smart contract architecture and user workflow for the NAKA token staking DApp.
+
+The contract is designed to be a non-custodial staking protocol where users can lock up their NAKA tokens for a predetermined period to earn rewards. The rewards are calculated based on the amount staked and the duration of the lock-up period.
+
+1. Smart Contract Code (Solidity)
+This is a sample Solidity smart contract that implements the staking logic. It uses OpenZeppelin's Ownable for administrative functions and SafeERC20 for secure token interactions. It's assumed that a NAKA ERC20 token contract already exists and is deployed.
+
+The contract includes functions for staking, unstaking after a lock-up period, and claiming rewards.
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
+/**
+ * @title NakaStaking
+ * @dev A staking contract for NAKA tokens that offers fixed-duration staking pools.
+ * Users can stake tokens for specific periods to earn rewards.
+ * The contract owner can manage staking pools and withdraw unclaimed tokens.
+ */
+contract NakaStaking is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+    using SafeMath for uint256;
+
+    // --- State Variables ---
+
+    // The NAKA token contract address.
+    IERC20 public immutable nakaToken;
+
+    // Mapping to store user's staked tokens for each pool duration.
+    // userAddress => lockDuration => StakedTokenInfo
+    mapping(address => mapping(uint256 => StakedTokenInfo)) public stakedTokens;
+
+    // Mapping to store the staking pools, defined by their lock duration and APY.
+    // lockDuration (seconds) => StakingPool
+    mapping(uint256 => StakingPool) public stakingPools;
+    uint256[] public supportedLockDurations;
+
+    // --- Structs & Events ---
+
+    /**
+     * @dev Stored information for each user's staked tokens.
+     * @param amount The amount of tokens staked.
+     * @param timestamp The block timestamp when the tokens were staked.
+     */
+    struct StakedTokenInfo {
+        uint256 amount;
+        uint256 timestamp;
+    }
+
+    /**
+     * @dev Defines a staking pool with a specific lock duration and reward rate.
+     * @param apy The Annual Percentage Yield for this pool.
+     * @param exists A flag to check if the pool is active.
+     */
+    struct StakingPool {
+        uint256 apy;
+        bool exists;
+    }
+
+    event Staked(address indexed user, uint256 amount, uint256 lockDuration, uint256 timestamp);
+    event Unstaked(address indexed user, uint256 amount, uint256 lockDuration, uint256 timestamp);
+    event RewardsClaimed(address indexed user, uint256 rewards, uint256 timestamp);
+    event PoolAdded(uint256 lockDuration, uint256 apy);
+
+    // --- Constructor ---
+
+    /**
+     * @dev Constructor for the NakaStaking contract.
+     * @param _nakaTokenAddress The address of the NAKA ERC20 token.
+     * @param owner The address that will own the contract.
+     */
+    constructor(IERC20 _nakaTokenAddress, address owner) Ownable(owner) {
+        nakaToken = _nakaTokenAddress;
+    }
+
+    // --- Administrative Functions (Owner Only) ---
+
+    /**
+     * @dev Allows the owner to add or update a staking pool.
+     * @param _lockDuration The lock duration in seconds (e.g., 604800 for 7 days).
+     * @param _apy The Annual Percentage Yield for the pool (e.g., 50 for 50%).
+     */
+    function addStakingPool(uint256 _lockDuration, uint256 _apy) external onlyOwner {
+        require(_lockDuration > 0, "Lock duration must be greater than 0");
+        require(_apy > 0, "APY must be greater than 0");
+
+        if (!stakingPools[_lockDuration].exists) {
+            supportedLockDurations.push(_lockDuration);
+        }
+        stakingPools[_lockDuration] = StakingPool(_apy, true);
+        emit PoolAdded(_lockDuration, _apy);
+    }
+
+    /**
+     * @dev Allows the owner to withdraw any remaining tokens from the contract.
+     * This is useful for withdrawing tokens that may have been sent accidentally.
+     * @param tokenAddress The address of the token to withdraw.
+     * @param amount The amount of tokens to withdraw.
+     */
+    function ownerWithdraw(address tokenAddress, uint256 amount) external onlyOwner {
+        IERC20(tokenAddress).safeTransfer(owner(), amount);
+    }
+
+    // --- User Functions ---
+
+    /**
+     * @dev Allows a user to stake NAKA tokens for a specific duration.
+     * @param _amount The amount of NAKA tokens to stake.
+     * @param _lockDuration The duration of the lock-up period in seconds.
+     */
+    function stake(uint256 _amount, uint256 _lockDuration) external nonReentrant {
+        require(_amount > 0, "Amount must be greater than 0");
+        require(stakingPools[_lockDuration].exists, "Invalid lock duration");
+
+        // The user must first approve this contract to transfer their tokens.
+        nakaToken.safeTransferFrom(msg.sender, address(this), _amount);
+
+        // Check if user has an existing stake in this pool
+        StakedTokenInfo storage info = stakedTokens[msg.sender][_lockDuration];
+        if (info.amount > 0) {
+            // If they have an existing stake, they must first unstake before restaking.
+            // This prevents a complex reward calculation system for multiple stakes.
+            revert("Please unstake existing tokens first");
+        }
+
+        // Update the user's staked amount and timestamp
+        info.amount = _amount;
+        info.timestamp = block.timestamp;
+
+        emit Staked(msg.sender, _amount, _lockDuration, block.timestamp);
+    }
+
+    /**
+     * @dev Allows a user to unstake their NAKA tokens after the lock-up period has expired.
+     * @param _lockDuration The duration of the original staking pool.
+     */
+    function unstake(uint256 _lockDuration) external nonReentrant {
+        StakedTokenInfo storage info = stakedTokens[msg.sender][_lockDuration];
+        require(info.amount > 0, "No tokens staked in this pool");
+
+        // Check if the lock-up period has passed
+        require(block.timestamp >= info.timestamp.add(_lockDuration), "Lock duration not expired yet");
+
+        // Transfer the original staked amount back to the user
+        uint256 stakedAmount = info.amount;
+        info.amount = 0; // Reset the amount to 0
+        info.timestamp = 0; // Reset timestamp
+        
+        nakaToken.safeTransfer(msg.sender, stakedAmount);
+
+        emit Unstaked(msg.sender, stakedAmount, _lockDuration, block.timestamp);
+    }
+
+    /**
+     * @dev Calculates and claims rewards for the user's staked tokens.
+     */
+    function claimRewards() external nonReentrant {
+        uint256 totalRewards = getRewards(msg.sender);
+        require(totalRewards > 0, "No rewards to claim");
+
+        // Reset all reward calculations for the user
+        for (uint256 i = 0; i < supportedLockDurations.length; i++) {
+            uint256 duration = supportedLockDurations[i];
+            stakedTokens[msg.sender][duration].timestamp = block.timestamp;
+        }
+
+        nakaToken.safeTransfer(msg.sender, totalRewards);
+        emit RewardsClaimed(msg.sender, totalRewards, block.timestamp);
+    }
+
+    // --- View Functions (Read-only) ---
+
+    /**
+     * @dev Calculates the total claimable rewards for a user.
+     * @param _user The address of the user.
+     * @return The total amount of rewards in NAKA tokens.
+     */
+    function getRewards(address _user) public view returns (uint256) {
+        uint256 totalRewards = 0;
+        for (uint256 i = 0; i < supportedLockDurations.length; i++) {
+            uint256 duration = supportedLockDurations[i];
+            StakedTokenInfo memory info = stakedTokens[_user][duration];
+            StakingPool memory pool = stakingPools[duration];
+
+            if (info.amount > 0) {
+                uint256 timeElapsed = block.timestamp.sub(info.timestamp);
+                uint256 rewards = (info.amount.mul(pool.apy).mul(timeElapsed)) / (100 * 31536000); // 31536000 seconds in a year
+                totalRewards = totalRewards.add(rewards);
+            }
+        }
+        return totalRewards;
+    }
+
+    /**
+     * @dev Gets the amount staked by a user for a specific lock duration.
+     * @param _user The address of the user.
+     * @param _lockDuration The lock duration of the pool.
+     * @return The amount of NAKA tokens staked.
+     */
+    function stakedAmounts(address _user, uint256 _lockDuration) external view returns (uint256) {
+        return stakedTokens[_user][_lockDuration].amount;
+    }
+}
+
+2. Workflow & User Interaction
+The user workflow for interacting with the NakaStaking contract can be broken down into these key steps:
+
+Step 1: Prerequisites
+The user must have the following before interacting with the DApp:
+
+An Ethereum-compatible wallet (e.g., MetaMask, WalletConnect).
+
+The NAKA ERC20 tokens they wish to stake.
+
+A small amount of the native blockchain currency (e.g., ETH on Ethereum, BNB on BSC, MATIC on Polygon) to pay for transaction fees (gas).
+
+Step 2: Token Approval
+Before the staking contract can take tokens from the user's wallet, the user must first grant it permission. This is a standard and critical security measure for ERC20 tokens.
+
+The user connects their wallet to the DApp's front end.
+
+The DApp prompts the user to "Approve" the staking contract.
+
+The user's wallet will open, asking for permission to allow the staking contract address to spend a specific amount of NAKA tokens on their behalf. This can be a specific amount or an "infinite" allowance for convenience.
+
+The user signs and confirms this transaction, paying a gas fee. This only needs to be done once per user for the initial approval.
+
+Step 3: Staking
+Once the staking contract is approved, the user can stake their tokens.
+
+The user selects one of the available staking pools (e.g., 7-day, 14-day, 28-day).
+
+The user enters the amount of NAKA tokens they want to stake.
+
+The DApp's front end calls the stake(amount, lockDuration) function on the NakaStaking contract.
+
+The user's wallet opens again, asking for a final confirmation of the staking transaction.
+
+The user signs and confirms the transaction. The tokens are then transferred from their wallet to the staking contract and are locked for the chosen duration.
+
+Step 4: Unstaking
+The user can only unstake their tokens after the chosen lock-up period has expired.
+
+The user navigates to their dashboard on the DApp.
+
+The DApp's front end checks the current timestamp against the timestamp recorded when the user staked their tokens.
+
+If the lock-up period has expired, an "Unstake" button becomes active.
+
+The user clicks "Unstake," and the DApp calls the unstake(lockDuration) function.
+
+The user's wallet opens for confirmation.
+
+Upon confirmation, the original staked amount is transferred back to the user's wallet.
+
+Step 5: Claiming Rewards
+Rewards are constantly accumulating while tokens are staked.
+
+The user navigates to the dashboard, which displays their claimable rewards by calling the getRewards(userAddress) view function.
+
+The user clicks a "Claim Rewards" button.
+
+The DApp calls the claimRewards() function.
+
+The user's wallet opens for confirmation.
+
+Once the transaction is confirmed, all accumulated rewards are transferred to the user's wallet, and the reward calculation for future rewards resets from the current time.
+
+3. Important Considerations
+Security Audit: The provided smart contract is a basic example. For a production environment, a professional security audit is absolutely essential to prevent vulnerabilities and potential loss of user funds.
+
+Gas Fees: All interactions with the contract (staking, unstaking, claiming) are write transactions that cost gas. The DApp's design should be mindful of gas efficiency.
+
+Decimals: The contract uses uint256 for token amounts. All interactions from the front end must handle token decimals correctly (e.g., multiplying by 10 
+18
+  for standard ERC20 tokens).
+
+Oracle/Reward Logic: The current reward calculation is a simplified linear model. More complex reward models (e.g., daily reward pools, variable APY) would require a different contract architecture.
