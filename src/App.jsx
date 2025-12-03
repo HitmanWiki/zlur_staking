@@ -10,7 +10,7 @@ import { parseUnits, formatUnits, maxUint256 } from 'viem';
 /************************************
  * 🧩 Addresses — REPLACE THESE
  ************************************/
-const ZLURPEE_TOKEN_ADDRESS = '0x42081CF59A145CA4CA51EdcEE577fc4be3b35DBd';
+const BENADS_TOKEN_ADDRESS = '0x14381ad86d0acc03f03dec66c39f413047665d4a';
 const STAKING_CONTRACT_ADDRESS = '';
 const TOKEN_DECIMALS = 18;
 
@@ -48,7 +48,7 @@ const erc20Abi = [
 ];
 
 /************************************
- * 🏗️ AdvancedZlurpeeStaking ABI
+ * 🏗️ AdvancedBENADSStaking ABI
  ************************************/
 const stakingAbi = [
   {
@@ -141,8 +141,8 @@ const stakingAbi = [
  ************************************/
 const projectId = '49c55f91f8d553affc92fdab806e83b6';
 const metadata = {
-  name: 'Zlurpee Staking',
-  description: 'Stake Zlurpee, Earn rewards',
+  name: 'BENADS Staking',
+  description: 'Stake BENADS, Earn rewards',
   url: '',
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 };
@@ -154,8 +154,8 @@ const queryClient = new QueryClient();
 // SVG bg pattern
 const backgroundPattern = '/bg.jpg';
 
-const logoUrl = 'zlur1.jfif';
-const gifUrl = 'zlur1.jfif';
+const logoUrl = 'benad.png';
+const gifUrl = 'benad.png';
 
 const stakingContract = {
   address: STAKING_CONTRACT_ADDRESS,
@@ -227,7 +227,7 @@ const ApyCalculator = ({ stakingPools, onClose }) => {
           color: '#e5008e',
           marginBottom: '0.5rem'
         }}>
-          Amount to Stake (ZLURPEE)
+          Amount to Stake (BENADS)
         </label>
         <input
           type="number"
@@ -296,13 +296,13 @@ const ApyCalculator = ({ stakingPools, onClose }) => {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
             <span style={{ color: '#e5008e' }}>Principal:</span>
-            <span style={{ fontFamily: '"Burger Free", sans-serif;' }}>{projectedReturns.principal.toFixed(2)} ZLURPEE</span>
+            <span style={{ fontFamily: '"Burger Free", sans-serif;' }}>{projectedReturns.principal.toFixed(2)} BENADS</span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
             <span style={{ color: '#e5008e' }}>Rewards ({projectedReturns.days} days):</span>
             <span style={{ fontFamily: '"Burger Free", sans-serif;', color: '#ab1567' }}>
-              +{projectedReturns.reward.toFixed(2)} ZLURPEE
+              +{projectedReturns.reward.toFixed(2)} BENADS
             </span>
           </div>
 
@@ -315,7 +315,7 @@ const ApyCalculator = ({ stakingPools, onClose }) => {
           }}>
             <span style={{ color: '#e5008e', fontWeight: 'bold' }}>Total:</span>
             <span style={{ fontFamily: '"Burger Free", sans-serif;', fontWeight: 'bold', fontSize: '1.25rem' }}>
-              {projectedReturns.total.toFixed(2)} ZLURPEE
+              {projectedReturns.total.toFixed(2)} BENADS
             </span>
           </div>
         </div>
@@ -366,7 +366,7 @@ const AppContent = () => {
    * 🔎 Reads
    ***************************/
   const { data: tokenBalanceData, refetch: refetchBalance } = useReadContract({
-    address: ZLURPEE_TOKEN_ADDRESS,
+    address: BENADS_TOKEN_ADDRESS,
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: [address],
@@ -374,7 +374,7 @@ const AppContent = () => {
   });
 
   const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
-    address: ZLURPEE_TOKEN_ADDRESS,
+    address: BENADS_TOKEN_ADDRESS,
     abi: erc20Abi,
     functionName: 'allowance',
     args: [address, STAKING_CONTRACT_ADDRESS],
@@ -527,7 +527,7 @@ const AppContent = () => {
     try {
       if (allowanceData === undefined || allowanceData === null) {
         const tx = await writeContract({
-          address: ZLURPEE_TOKEN_ADDRESS,
+          address: BENADS_TOKEN_ADDRESS,
           abi: erc20Abi,
           functionName: 'approve',
           args: [STAKING_CONTRACT_ADDRESS, maxUint256]
@@ -538,7 +538,7 @@ const AppContent = () => {
       const current = BigInt(allowanceData);
       if (current < requiredAmountWei) {
         const tx = await writeContract({
-          address: ZLURPEE_TOKEN_ADDRESS,
+          address: BENADS_TOKEN_ADDRESS,
           abi: erc20Abi,
           functionName: 'approve',
           args: [STAKING_CONTRACT_ADDRESS, requiredAmountWei]
@@ -555,7 +555,7 @@ const AppContent = () => {
     const amountStr = stakeInputs[poolId];
     const amountNum = parseFloat(amountStr);
     if (isNaN(amountNum) || amountNum <= 0) {
-      showCustomModal('Zlur! Please enter a valid amount.', 'error');
+      showCustomModal('Benad! Please enter a valid amount.', 'error');
       return;
     }
 
@@ -795,7 +795,7 @@ const AppContent = () => {
         {/* Header */}
         <header className="header">
           <div className="logo-section">
-            <img src={logoUrl} alt="ZLURPEE LOGO" className="logo-image animate-pulse" />
+            <img src={logoUrl} alt="BENADS LOGO" className="logo-image animate-pulse" />
           </div>
 
           {isConnected ? (
@@ -827,7 +827,7 @@ const AppContent = () => {
             {/* Balances & Rewards */}
             <div className="stats-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2><Cat style={{ marginRight: '0.5rem' }} /> Your Zlurpee Staking Stats</h2>
+                <h2><Cat style={{ marginRight: '0.5rem' }} /> Your BENADS Staking Stats</h2>
                 {isRefreshing && (
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Loader className="animate-spin" style={{ marginRight: '0.5rem' }} />
@@ -839,17 +839,17 @@ const AppContent = () => {
                 <div className="stat-card">
                   <p className="label">Available Balance</p>
                   <p className="value">{formattedTokenBalance.toFixed(2)}</p>
-                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>ZLURPEE Tokens</p>
+                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>BENADS Tokens</p>
                 </div>
                 <div className="stat-card">
                   <p className="label">Your Total Staked</p>
                   <p className="value">{totalStakedUser.toFixed(2)}</p>
-                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>ZLURPEE Tokens</p>
+                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>BENADS Tokens</p>
                 </div>
                 <div className="stat-card">
                   <p className="label">Your Total Claimable</p>
                   <p className="value" style={{ color: 'var(--success-color)' }}>{totalUserRewards.toFixed(2)}</p>
-                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>ZLURPEE Tokens (sum of pools)</p>
+                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>BENADS Tokens (sum of pools)</p>
                 </div>
               </div>
 
@@ -861,13 +861,13 @@ const AppContent = () => {
                     {formattedAvailableRwds.toFixed(2)}
                   </p>
                   <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>
-                    ZLURPEE Available for Rewards
+                    BENADS Available for Rewards
                   </p>
                 </div>
                 <div className="stat-card">
                   <p className="label">Total Staked (All Users)</p>
                   <p className="value">{formattedTotalStakedAll.toFixed(2)}</p>
-                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>Zlurpee in contract</p>
+                  <p style={{ fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: '#1e3a8a', marginTop: '0.25rem' }}>BENADS in contract</p>
                 </div>
                 <div className="stat-card">
                   <p className="label">Wallet</p>
@@ -897,12 +897,12 @@ const AppContent = () => {
                     <div className="input-group" style={{ marginBottom: '1rem' }}>
                       <p>Your staked amount:</p>
                       <p style={{ fontSize: '1.25rem', fontWeight: 'bold', fontFamily: '"Burger Free", sans-serif;' }}>
-                        {stakedAmt.toFixed(2)} ZLURPEE
+                        {stakedAmt.toFixed(2)} BENADS
                       </p>
                     </div>
 
                     <div className="input-group" style={{ marginBottom: '1rem' }}>
-                      <p>Stake ZLURPEE</p>
+                      <p>Stake BENADS</p>
                       <div className="input-flex">
                         <input
                           type="number"
@@ -921,7 +921,7 @@ const AppContent = () => {
                       <p>Claimable Rewards:</p>
                       <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', justifyContent: 'space-between' }}>
                         <p style={{ fontSize: '1.25rem', fontWeight: 'bold', fontFamily: '"Burger Free", sans-serif;' }}>
-                          {rewardsAmt.toFixed(6)} ZLURPEE
+                          {rewardsAmt.toFixed(6)} BENADS
                         </p>
                         <button
                           onClick={() => handleClaimRewards(pool.id)}
@@ -943,7 +943,7 @@ const AppContent = () => {
                     </div>
 
                     <div className="input-group" style={{ marginBottom: '0.5rem' }}>
-                      <p>Unstake All ZLURPEE</p>
+                      <p>Unstake All BENADS</p>
                       <div className="input-flex">
                         <button
                           onClick={() => handleUnstake(pool.id)}
@@ -978,7 +978,7 @@ const AppContent = () => {
             <div className="claim-section">
               <h2><PiggyBank style={{ marginRight: '0.5rem' }} /> Claim All Rewards</h2>
               <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', fontFamily: '"Burger Free", sans-serif;' }}>{totalUserRewards.toFixed(6)} ZLURPEE</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', fontFamily: '"Burger Free", sans-serif;' }}>{totalUserRewards.toFixed(6)} BENADS</p>
                 <p style={{ fontSize: '0.875rem', fontFamily: 'Inter, sans-serif', color: '#e5008e' }}>sum across all pools</p>
               </div>
               <button
@@ -1013,11 +1013,11 @@ const AppContent = () => {
       textAlign: 'center'
     }}>
       <h1 className="welcome-title" style={{ marginBottom: '2rem' }}>
-        Welcome to Zlurpee Staking!
+        Welcome to BENADS Staking!
       </h1>
       
       <p className="welcome-message" style={{ marginBottom: '2.5rem', fontSize: '1.3rem' }}>
-        Connect your wallet to start staking your ZLURPEE tokens and earn rewards. It's time to put your tokens to work!
+        Connect your wallet to start staking your BENADS tokens and earn rewards. It's time to put your tokens to work!
       </p>
       
       <button onClick={() => open()} className="connect-button" style={{ marginBottom: '1.5rem', fontSize: '1.2rem', padding: '1rem 2rem' }}>
@@ -1056,7 +1056,7 @@ const AppContent = () => {
     }}>
       <img 
         src={logoUrl} 
-        alt="ZLURPEE LOGO" 
+        alt="BENADS LOGO" 
         style={{ 
           width: '350px', // Much larger logo
           height: '350px', // Much larger logo
@@ -1078,7 +1078,7 @@ const AppContent = () => {
             <div className={`modal-container ${modalType === 'success' ? 'success' : 'error'}`}>
               <button onClick={() => setShowModal(false)} className="modal-close-button"><XCircle size={24} /></button>
               <div>
-                <h3 className="modal-title">{modalType === 'success' ? 'Zlur-ificent!' : 'Oh no!'}</h3>
+                <h3 className="modal-title">{modalType === 'success' ? 'Benad-ificent!' : 'Oh no!'}</h3>
                 <p className="modal-text">{modalMessage}</p>
               </div>
             </div>
